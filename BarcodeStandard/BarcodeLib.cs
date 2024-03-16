@@ -622,6 +622,7 @@ namespace BarcodeStandard
 
                         break;
                     }//case
+                case Type.Jan13:
                 case Type.Ean13:
                     {
                         // Automatically calculate Width if applicable.
