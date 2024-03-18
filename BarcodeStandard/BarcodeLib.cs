@@ -41,6 +41,9 @@ namespace BarcodeStandard
     public enum GuardBarsMode
     { Enabled, EnabledFirstCharOnQuietZone, Disabled }
 
+    public enum BearerBarsMode
+    { Frame, BearerBars, Disabled }
+
     #endregion Enums
 
     /// <summary>
@@ -167,10 +170,17 @@ namespace BarcodeStandard
 
         /// <summary>
         /// Mode when rendering guard bars for barcodes that support them (EAN-8/EAN-13/UPC-A/UPC-E)
-        /// 
+        ///
         /// Functionality not implemented for codes other than EAN-13
         /// </summary>
         public GuardBarsMode GuardBarsMode { get; set; }
+
+        /// <summary>
+        /// Mode when rendering bearer bars
+        ///
+        /// Functionality not implemented for codes other than EAN-13
+        /// </summary>
+        public BearerBarsMode BearerBarsMode { get; set; }
 
         /// <summary>
         /// Gets or sets the amount of time in milliseconds that it took to encode and draw the barcode.
@@ -227,6 +237,15 @@ namespace BarcodeStandard
         /// Disables EAN13 invalid country code exception.
         /// </summary>
         public bool DisableEan13CountryException { get; set; } = false;
+
+        /// <summary>
+        /// Enable rendering of top bar when rendering code.
+        ///
+        /// Top bar is typically used when printing codes on thermal printers
+        /// to detect damaged print head dots. Damage dots would create missing bars that
+        /// could cause the barcode to be invalid/unreadable.
+        /// </summary>
+        public bool IncludeTopBar { get; set; }
 
         #endregion Properties
 
@@ -556,14 +575,22 @@ namespace BarcodeStandard
                             paint.ColorF = ForeColor;
 
                             //paint.Alignment = PenAlignment.Center;
-                            canvas.DrawLine(new SKPoint(0, 0), new SKPoint(bitmap.Width, 0), paint);//top
-                            canvas.DrawLine(new SKPoint(0, ilHeight), new SKPoint(bitmap.Width, ilHeight), paint);//bottom
-                            canvas.DrawLine(new SKPoint(0, 0), new SKPoint(0, ilHeight), paint);//left
-                            canvas.DrawLine(new SKPoint(bitmap.Width, 0), new SKPoint(bitmap.Width, ilHeight), paint);//right
+                            if (BearerBarsMode == BearerBarsMode.Frame || BearerBarsMode == BearerBarsMode.BearerBars)
+                            {
+                                canvas.DrawLine(new SKPoint(0, 0), new SKPoint(bitmap.Width, 0), paint);//top
+                                canvas.DrawLine(new SKPoint(0, ilHeight), new SKPoint(bitmap.Width, ilHeight), paint);//bottom
+                            }
+                            if (BearerBarsMode == BearerBarsMode.Frame)
+                            {
+                                canvas.DrawLine(new SKPoint(bitmap.Width, 0), new SKPoint(bitmap.Width, ilHeight), paint);//right
+                                canvas.DrawLine(new SKPoint(0, 0), new SKPoint(0, ilHeight), paint);//left
+                            }
                         }//using
 
                         if (IncludeLabel)
+                        {
                             Labels.Label_ITF14(this, bitmap);
+                        }
 
                         break;
                     }//case
@@ -590,6 +617,7 @@ namespace BarcodeStandard
                         //draw image
                         var pos = 0;
                         var halfBarWidth = (int)(iBarWidth * 0.5);
+                        var totalBarcodeWidth = EncodedValue.Length * iBarWidth;
 
                         using (var canvas = new SKCanvas(bitmap))
                         {
@@ -617,7 +645,19 @@ namespace BarcodeStandard
 
                         if (IncludeLabel)
                         {
-                            Labels.Label_UPCA(this, bitmap);
+                            if (GuardBarsMode != GuardBarsMode.Disabled)
+                            {
+                                Labels.Label_UPCA(this, bitmap);
+                            }
+                            else
+                            {
+                                Labels.Label_Generic(this, bitmap, totalBarcodeWidth);
+                            }
+                        }
+
+                        if (IncludeTopBar)
+                        {
+                            Labels.TopBar(this, bitmap, shiftAdjustment, totalBarcodeWidth, iBarWidth);
                         }
 
                         break;
@@ -662,6 +702,7 @@ namespace BarcodeStandard
                         //draw image
                         var pos = 0;
                         var halfBarWidth = (int)(iBarWidth * 0.5);
+                        var totalBarcodeWidth = EncodedValue.Length * iBarWidth;
 
                         using (var canvas = new SKCanvas(bitmap))
                         {
@@ -694,6 +735,11 @@ namespace BarcodeStandard
                             {
                                 Labels.Label_Generic(this, bitmap, iBarWidth);
                             }
+                        }
+
+                        if (IncludeTopBar)
+                        {
+                            Labels.TopBar(this, bitmap, shiftAdjustment, totalBarcodeWidth, iBarWidth);
                         }
 
                         break;
@@ -767,6 +813,11 @@ namespace BarcodeStandard
                         {
                             Labels.Label_Generic(this, bitmap, totalBarcodeWidth);
                         }//if
+
+                        if (IncludeTopBar)
+                        {
+                            Labels.TopBar(this, bitmap, shiftAdjustment, totalBarcodeWidth, iBarWidth);
+                        }
 
                         break;
                     }//switch
